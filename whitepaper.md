@@ -4,6 +4,12 @@
 
 _NOTE: This document is a work in progress. Please check back regularly for updates!_
 
+To Do:
+[ ] explain ecosystem and their entities
+[ ] add info about sentinels / compliance officer
+[ ] add info about disputes
+[ ] add info about random arbitrators
+
 ## Table of Contents
 
 - [Abstract](#Abstract)

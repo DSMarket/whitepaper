@@ -7,8 +7,8 @@ _NOTE: This document is a work in progress. Please check back regularly for upda
 ### To Do:
 
 - [ ] explain ecosystem and their entities
-- [ ] add info about compliance officer
-- [ ] add info about disputes
+- [x] add info about compliance officer
+- [x] add info about disputes
 - [ ] add info about random arbitrators
 
 ## Table of Contents
@@ -76,37 +76,54 @@ SFAs add a new instrument to the EVM and a new form of free agreements between p
 
 # Ecosystem and Their Entities
 
+The SFA Market ecosystem, in its first version, is comprised of various entities responsible for different aspects, which, through their interactions, are essential for the proper fulfillment of Storage Forwards Agreements (SFAs). By applying game theory, we implement rewards and penalties to ensure the proper behavior of each entity.
+
 ## Content Publishers
 
-These are the entities or individuals who need their data to be stored. They create SFAs making a one-time payment to ensure the availability of their data for a specified period of time.
+These are the entities or individuals who need their data to be stored. They create SFAs by making a one-time payment to ensure the availability of their data for a specified period of time. They specify which CID (Content Identifier), agreement start time, time-to-live and rewards used to incentive the host that accepts the agreement.
 
 ## Storage Hosts
 
-These are the entities or individuals who provide the storage space. They claim to be the hosts of the SFA and make collateral deposits to guarantee compliance with the terms of the agreement.
+These are the entities or individuals who provide the storage space. They claim to be the hosts of the SFA and make collateral deposits to guarantee compliance with the terms of the agreement. If a host fails to fulfill their storage obligations, their collateral is partial or full used as a penalty. Hosts receive rewards (deposited in the SFA by the Content Publisher) in a vesting format, divided over the storage period. They can withdraw their collateral once the agreement is completed (after the TTL of the SFA).
 
 ## Compliance Officers
 
-Independent entities or nodes responsible for monitoring compliance with SFA terms. They ensure that storage hosts are fulfilling their obligations and that data integrity is maintained by persisting a local log. Compliance Officers initiate disputes to penalize for non-compliance, adding an extra layer of security and reliability to the system.
+Compliance Officers are sentinel nodes responsible for ensuring that storage hosts comply with their agreements and properly store the CIDs specified in the SFAs they have accepted. They generate logs and store them on their devices.
 
-## Arbitrators
+To become a Compliance Officer, a node must register and make a collateral deposit. To deregister, they must wait for a certain period before withdrawing their remaining collateral.
 
-In case a dispute is initiated, arbitrators are randomly selected. They ensure unbiased resolution and handle disputes fairly and transparently by requesting logs from compliance officers.
+If a Compliance Officer finds that a host is not fulfilling a storage agreement for a certain period or at all, they can initiate a dispute to penalize the host. If the dispute is approved (won), the Compliance Officer receives a commission from the penalty applied to the host. If the dispute is disapproved, the Compliance Officer is penalized and loses part of their collateral.
 
-## Technical Details
+Each time a dispute is created, an odd number of Compliance Officers are randomly selected to act as arbitrators and vote in favor, against, or neutral. The selected Compliance Officers must vote; failure to do so results in a penalty. If a Compliance Officer votes but their vote is not aligned with the majority, they are penalized (though less severely than for not voting). If a Compliance Officer votes with the majority, they are rewarded with a share of the penalties applied.
 
-The implementation of Storage Forward Agreements (SFAs) is based on:
+## SFA Market
 
-- **SFA Market:** SFAs are implemented in a smart contracts called SFAMarket on the blockchain. These smart contracts manage the creation, transfer, and settlement of storage agreements, like also creation of disputes, manage of balances, rewards and penalizations.
+SFAs are implemented in a smart contracts called SFAMarket on the blockchain. These smart contracts manage the creation, transfer, and settlement of storage agreements, like also creation of disputes, manage of internal balances, rewards, collaterals and penalizations.
 
-- **NFTs (Non-Fungible Tokens):** Each SFA is represented as a unique NFT, which contains metadata about the agreement, such as the time-to-live (TTL), Content ID, collateral deposit, vesting amount deposited, vesting amount claimed, and host.
+## Storage Forward Agreements
 
-- **Compliance Officers:** Independent entities that monitor compliance with SFA. They use verification algorithms to ensure CIDs are correctly stored and that hosts fulfill their obligations. Any user can setup an Compliance Officer node. CO Nodes can initialize disputes over some SFA if any term is not being met.
+Each SFA is represented as a unique NFT, which contains metadata about the agreement, such as the time-to-live (TTL), Content ID, collateral deposit, vesting amount deposited, vesting amount claimed, and host. As NFTs, they are transferible by publisher (current owners), also hostership can be transferable.
 
-- **Arbitratorss:** Indepent entities that are choosed randomly when a dipute is open. Arbitrators should vote or they will be penalizated. Arbitrators commit hashed vote. When vote time is end, Arbitrator should revel vote decition and salt used to hash their commit vote.
+```solidity
+struct SFA {
+    address publisher;
+    string cid;
+    uint256 vesting;
+    uint256 vested;
+    uint256 startTime;
+    uint256 ttl;
+    Status status; // enum { INACTIVE, ACTIVE, PAUSED, FINISHED }
+    address host;
+    address pendingHost;
+    uint256 collateral;
+}
+```
 
-- **User Interface (UI):** A WebApp that allows users (content publishers and hosts) to interact with the system, create SFAs, manage collateral deposits, and monitor the status of their agreements.
+## User Interface (UI)
 
-### SFA Creation
+A WebApp that allows users (content publishers and hosts) to interact with the system, create SFAs, manage collateral deposits, and monitor the status of their agreements.
+
+## Publisher create a new SFA
 
 ```mermaid
 sequenceDiagram
@@ -114,8 +131,6 @@ sequenceDiagram
     participant IPFS
     participant T as ERC20
     participant M as Market ERC721
-    participant H as Host
-
 
     P ->>+ IPFS: Publish content in a IPFS node
     IPFS ->>- P: return CID
@@ -123,16 +138,10 @@ sequenceDiagram
     P ->>+ M: Create New Storage Forward Agreement (SFA NFT) with CID, Vesting, startTime and TTL
     M ->> T: call to transfer tokens to Market
     T ->> M: transfer tokens
-    M ->>- P: Mint SFA NTF to Publisher
-
-    H ->>+ M: Ask for new SFC
-    H ->> M: Take Position of new SFC NFT as Taker or Hoster
-    M -> R: Ask Registry if Taker is registered
-    M ->>- H: Mint Hoster NFT
-    IPFS ->> H: Retrive CID and Host Content in their node
+    M ->>- P: Mint SFA NTF to Publisher as owner
 ```
 
-### Host claim position in open SFA
+## Node claim Host in a open SFA
 
 ```mermaid
 sequenceDiagram
@@ -147,14 +156,13 @@ sequenceDiagram
     H ->>+ M: claim Host in INACTIVE SFA
     M ->> T: call to transfer token to Market
     T ->> M: transfer tokens for collateral
-    M ->> M: assign host and ACTIVE SFA
     IPFS ->> H: Retrive CID and Host Content
+    M ->> M: assign host and ACTIVE SFA
 ```
 
-### Claim Vesting in SFA
+## Claim Vesting in SFA
 
-call for available vesting in SFA NFT is open to public in base of incentives to caller, so in this way we can incentive market to automate and keep token rolling.
-caller get a ratio participation of vesting amount tranfered
+Call function of claim available vesting in SFA is open to public in base of incentives to caller, so in this way we can incentive market to automate and keep token rolling. Caller get a ratio participation of vesting amount tranfered.
 
 ```mermaid
 sequenceDiagram
@@ -164,30 +172,32 @@ sequenceDiagram
 
     C ->>+ M: claim Vesting in ACTIVE SFA
     M ->> M: reduce vesting amount available in SFA NFT
-    M ->> C: transfer vesting incentives tokens
-    M ->> H: transfer vesting amount minus vesting incentives tokens
+    M ->> C: transfer incentives tokens
+    M ->> H: transfer vesting amount minus incentives
 ```
 
-### Register as Host
+## Register as Host
+
+When an Address want to register a node, have to pass a string with a multiaddress enabling a way to connect to host node.
 
 ```mermaid
 sequenceDiagram
     Actor H as Host
     participant M as Market ERC721
 
-    H ->> M: Register as Host sending tx with ipfsID ipfsPubKey
+    H ->> M: address sender is Registered as Host sending tx with multriaddress
 ```
 
-#### Register as compliance officer
+## Register as compliance officer
 
 ```mermaid
 sequenceDiagram
-    Actor S as compliance officer
+    Actor CO as compliance officer
     participant T as Token ERC20
     participant M as Market ERC721
 
-    S ->> T: Approve allowance to Market
-    S ->>+ M: Send TX to register Address as compliance officer
+    CO ->> T: Approve allowance to Market
+    CO ->>+ M: Send TX to register Address as compliance officer
     M ->> T: call to Transfer token to Market
     T ->> M: Deposit tokens as collateral
     M ->>- M: Active compliance officer
@@ -195,17 +205,40 @@ sequenceDiagram
 
 ## Create a Dispute
 
-When a host is not working as expected or the CID is not available, compliance officers can create a dispute to charge a penalty to hosts of SFA that are not complying with their obligations.
+When a host is not working as expected or the CID is not available, compliance officers can create a dispute to charge a penalty to SFA host that is not complying with their obligations.
+
+Randomly odd numbers of Compliance Officers are choosen as Arbitrators so they must to vote to avoid penalties and take a decision if Dispute is right or wrong.
+
+To protect dispute, dispute have three periods:
+
+1. commit vote time
+2. reveal vote time
+3. resolve dispute (ends of reveal time)
+
+As a way to protect decision and avoid corruption between arbitrators, they have to commit their vote in a string hash
+` keccak256(vote + salt)`, while salt is a random string.
+
+After commit time is finnished, arbitrators reveal their vote sending vote decision and salt used in previous hash.
 
 ```mermaid
 sequenceDiagram
-    Actor S as compliance officer
+    Actor CO as compliance officer
     participant M as Market ERC721
-    Actor S2 as compliance officer 2
+    Actor A1 as Arbitrator 1
+    Actor A2 as Arbitrator 2
+    Actor A3 as Arbitrator 3
 
-    S ->>+ M: Create Dispute
-    Note right of S: Dispute:<br>- SFA ID<br>- title<br>- description<br>- startTime<br>- endTime
-    M ->>- M: top-up dispute balances
-    S2 ->> M: commit vote
-    Note left of S2: Dispute:<br>- SFA ID<br>- title<br>- description<br>- startTime<br>- endTime
+    CO ->>+ M: Create Dispute
+    Note right of CO: Dispute:<br>- SFA ID<br>- title<br>- description<br>- startTime<br>- endTime
+    M ->> M: top-up dispute balances
+    M ->>- M: Choose randomly three <br> Active CO to be Arbitrators
+    A1 ->> M: commit vote hash
+    A2 ->> M: commit vote hash
+    A3 ->> M: commit vote hash
+    Note left of A1: Passed One hour after dispute is open <br> arbitrators have to reveal their votes
+    A1 ->> M: reveal vote passing vote decision <br> and Salt used to hash vote
+    A2 ->> M: reveal vote passing vote decision <br> and Salt used to hash vote
+    A3 ->> M: reveal vote passing vote decision <br> and Salt used to hash vote
+    CO ->> M: Call to solve Dipute applying rewards and penalties.
+
 ```

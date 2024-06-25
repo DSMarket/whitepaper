@@ -4,24 +4,20 @@
 
 _NOTE: This document is a work in progress. Please check back regularly for updates!_
 
-### To Do:
-
-- [ ] explain ecosystem and their entities
-- [x] add info about compliance officer
-- [x] add info about disputes
-- [ ] add info about random arbitrators
-
 ## Table of Contents
 
-- [Abstract](#Abstract)
-- [Introduction](#Introduction)
-- [Problem / Challenge](#Problem--Challenge)
-- [Proposed Solution](#Proposed-Solution)
-- [Background / State of the Art](#Background--State-of-the-Art)
+- [Abstract](#abstract)
+- [Introduction](#introduction)
+- [Problem / Challenge](#problem--challenge)
+- [Proposed Solution](#proposed-solution)
+- [Background / State of the Art](#background--state-of-the-art)
+- [Ecosystem and Their Entities](#ecosystem-and-their-entities)
+- [Use cases](#use-cases)
+- [Token Economic](#token-economic)
 
 # Abstract
 
-Decentralized storage faces significant challenges in terms of incentives and reliability, limiting its widespread adoption. SFA Market introduces Storage Forward Agreements (SFAs), an innovative solution in the crypto ecosystem that allows content publishers to ensure the availability of their data through a one-time payment, guaranteeing its storage for a defined period. Unlike the monthly subscription model of Web2, SFAs offer stability and predictability, better aligning incentives for publishers and hosts. Hosts must make a collateral deposit, which is refundable upon fulfilling the agreement, and can be penalized in case of non-compliance, ensuring the system's integrity. Additionally, SFAs allow for the transfer of responsibilities in a secondary market, providing flexibility, liquidity, and efficiency in decentralized storage. This innovative approach offers a robust and flexible solution to the current incentive challenges of data storage in the Web3 era.
+An innovative protocol solution in the crypto ecosystem that allows content publishers to ensure the availability of their data for a defined period through a one-time payment. Decentralized storage faces significant challenges in terms of incentives and reliability, limiting its widespread adoption. Unlike the monthly subscription model of Web2, SFAs offer stability and predictability, better aligning incentives for publishers and hosts. Hosts make a collateral deposit, which is refundable upon fulfilling the agreement, and can be penalized in case of non-compliance, ensuring the system's integrity. Additionally, SFAs allow for the transfer of responsibilities in a secondary market, providing flexibility, liquidity, and efficiency in decentralized storage. This innovative approach offers a robust and flexible tool solution to the current incentive challenges of data storage in the Web3 era.
 
 # Introduction
 
@@ -44,13 +40,13 @@ Decentralized storage systems, such as IPFS, Filecoin, Storj, and Sia, have esta
 
 SFA Market addresses these challenges by introducing Storage Forward Agreements (SFAs), which offer several key innovations:
 
-1. **One-Time Payment Model**: SFAs allow content publishers to ensure the availability of their data through a one-time payment, guaranteeing storage of a specific data for a defined period and eliminating the need for monthly subscriptions and contracted idle storage.
-2. **Collateral Deposits**: Hosts must make a collateral deposit, which ensures compliance with the agreement. If a host fails to meet their obligations, they are penalized, and the collateral is refunded to the publisher, ensuring system integrity.
-3. **Transferable Agreements**: SFAs are essentially NFTs that can be transferred between parties. This allows both publishers and storage providers to sell or transfer their rights and obligations, creating a secondary market that enhances liquidity and efficiency.
+1. **One-Time Payment Model**: SFAs allow content publishers to ensure the availability of their data through a one-time payment, guaranteeing storage of a specific data for a defined period.
+2. **Collateral Deposits**: Hosts make a collateral deposit, which ensures compliance with the agreement. If a host fails to meet their obligations, they are penalized, and the collateral is refunded to the publisher, ensuring system integrity.
+3. **Transferable Agreements**: SFAs are essentially NFTs that can be transferred between parties. This allows both publishers and storage providers to trade on their rights and obligations, creating a secondary market that enhances liquidity and efficiency.
 4. **Customization**: SFAs offer flexibility in defining terms such as TTL (time-to-live), pricing, and collateral requirements, allowing for tailored agreements that better meet the needs of both parties.
-5. **Open Ecosystem**: SFA Market is built on cypherpunk principles, aiming to create open tools that are compatible and connectable with other ecosystem tools, providing greater freedom and interoperability.
-   **Compliance Officers:** Independent entities or nodes responsible for monitoring compliance with SFA terms, ensuring data integrity, and initiating penalties for non-compliance.
-   **Dispute Resolution and Arbitrators:** In case of disputes, the system utilizes random arbitrators to ensure unbiased resolution. These arbitrators are selected from a pool of verified nodes, ensuring fair and transparent dispute handling.
+5. **Open Ecosystem**: SFA Market is built on cypherpunk principles, aiming to create open tools that are compatible and connectable with other ecosystem tools, providing greater freedom and interoperability:
+6. **Compliance Officers:** Independent entities or nodes responsible for monitoring compliance with SFA terms, ensuring data integrity, and initiating disputes for non-compliance.
+7. **Dispute Resolution and Arbitrators:** In case of disputes, the system utilizes random arbitrators to ensure unbiased resolution. These arbitrators are selected from a pool of verified nodes, ensuring fair and transparent dispute handling.
 
 # Background / State of the Art
 
@@ -77,6 +73,22 @@ SFAs add a new instrument to the EVM and a new form of free agreements between p
 # Ecosystem and Their Entities
 
 The SFA Market ecosystem, in its first version, is comprised of various entities responsible for different aspects, which, through their interactions, are essential for the proper fulfillment of Storage Forwards Agreements (SFAs). By applying game theory, we implement rewards and penalties to ensure the proper behavior of each entity.
+
+```mermaid
+flowchart TD
+    CO[Compliance Officer] -- supervise --> Host[Host]
+    CO -- create dispute --> SFA_Market[SFA Market]
+    CO -- vote --> Dispute[Dispute]
+
+    SFA -. owner .- Publisher[Publisher]
+
+    SFA_Market .-> SFA
+    SFA_Market .-> Dispute
+
+    Host -.- SFA
+
+    Publisher -- publish content --> SFA_Market
+```
 
 ## Content Publishers
 
@@ -105,6 +117,8 @@ SFAs are implemented in a smart contracts called SFAMarket on the blockchain. Th
 Each SFA is represented as a unique NFT, which contains metadata about the agreement, such as the time-to-live (TTL), Content ID, collateral deposit, vesting amount deposited, vesting amount claimed, and host. As NFTs, they are transferible by publisher (current owners), also hostership can be transferable.
 
 ```solidity
+enum Status{ INACTIVE, ACTIVE, PAUSED, FINISHED }
+
 struct SFA {
     address publisher;
     string cid;
@@ -112,16 +126,14 @@ struct SFA {
     uint256 vested;
     uint256 startTime;
     uint256 ttl;
-    Status status; // enum { INACTIVE, ACTIVE, PAUSED, FINISHED }
+    Status status;
     address host;
     address pendingHost;
     uint256 collateral;
 }
 ```
 
-## User Interface (UI)
-
-A WebApp that allows users (content publishers and hosts) to interact with the system, create SFAs, manage collateral deposits, and monitor the status of their agreements.
+# Use Cases
 
 ## Publisher create a new SFA
 
@@ -141,7 +153,7 @@ sequenceDiagram
     M ->>- P: Mint SFA NTF to Publisher as owner
 ```
 
-## Node claim Host in a open SFA
+## Claim Host in a open SFA
 
 ```mermaid
 sequenceDiagram
@@ -240,5 +252,15 @@ sequenceDiagram
     A2 ->> M: reveal vote passing vote decision <br> and Salt used to hash vote
     A3 ->> M: reveal vote passing vote decision <br> and Salt used to hash vote
     CO ->> M: Call to solve Dipute applying rewards and penalties.
-
 ```
+
+# Token Economic
+
+As a futures agreement market model, SFA Market will use its tokenomics to collect fees on each agreement. Primarily, for each "vesting" that a host earns, a percentage will go to the SFAM DAO Treasury. This will then be used as deemed most efficient in terms of:
+
+- System maintenance and improvements
+- Incentives for agreements
+- Market advertising
+- Incentive SFA Investors buying SFA Token
+
+SFA Market is a multi token protocol, that going to accept multi token reward deposit in every SFA.
